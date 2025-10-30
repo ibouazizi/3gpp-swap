@@ -1,0 +1,29 @@
+{
+  "name": "swap-protocol",
+  "version": "0.1.0",
+  "description": "3GPP SWAP (Simple WebRTC Application Protocol) v1 JavaScript library",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lint": "echo 'no linter configured'",
+    "build:browser": "rollup -c"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-alias": "^5.1.0",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-replace": "^5.0.7",
+    "rollup": "^4.22.4",
+    "@rollup/plugin-json": "^6.1.0"
+  }
+}

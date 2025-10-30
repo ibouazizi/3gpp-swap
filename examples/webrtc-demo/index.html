@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SWAP WebRTC Demo</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      button { margin: .5rem 0; }
+      textarea { width: 100%; height: 120px; }
+    </style>
+  </head>
+  <body>
+    <h1>SWAP WebRTC Demo</h1>
+    <p>Open this page in two tabs. One clicks "Register as Answerer"; the other clicks "Offer".</p>
+    <div>
+      <label>Server URL:</label>
+      <input id="serverUrl" value="ws://localhost:8080/3gpp-swap/v1" style="width: 420px" />
+    </div>
+    <div>
+      <button id="btnConnect">Connect</button>
+      <button id="btnRegister">Register as Answerer</button>
+      <button id="btnOffer">Offer</button>
+    </div>
+    <pre id="log"></pre>
+
+    <script type="module">
+      import { SwapClient, CriteriaBuilder } from '../../swap-protocol/dist/browser/swap.esm.js';
+
+      const log = (...args) => {
+        const el = document.getElementById('log');
+        el.textContent += args.join(' ') + '\n';
+      };
+
+      let client;
+      let pc;
+
+      async function createPc() {
+        pc = new RTCPeerConnection();
+        pc.onicecandidate = (e) => { if (!e.candidate) log('ICE gathering complete'); };
+        const dc = pc.createDataChannel('chat');
+        dc.onopen = () => log('Data channel open');
+        dc.onmessage = (e) => log('Data channel message:', e.data);
+        return pc;
+      }
+
+      async function connectServer() {
+        const url = new URL(document.getElementById('serverUrl').value);
+        client = new SwapClient({ host: url.hostname, port: Number(url.port||'80'), secure: url.protocol === 'wss:' });
+        client.on('error', (e) => log('Client error:', e.message || e));
+        client.on('connect', async (offer, source) => {
+          log('Incoming offer from', source);
+          await createPc();
+          await pc.setRemoteDescription({ type: 'offer', sdp: offer });
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          // wait for ICE complete
+          await new Promise((r)=>{
+            const iv = setInterval(()=>{ if (pc.iceGatheringState==='complete'){clearInterval(iv); r();}}, 100);
+          });
+          await client.accept(source, pc.localDescription.sdp);
+          log('Sent answer');
+        });
+        client.on('accept', async (answer) => {
+          log('Got answer');
+          await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+        });
+        await client.connect();
+        log('Connected to SWAP server');
+      }
+
+      async function register() {
+        await client.register(new CriteriaBuilder().withService('webrtc-demo').build());
+        log('Registered as answerer for service webrtc-demo');
+      }
+
+      async function offer() {
+        await createPc();
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await new Promise((r)=>{
+          const iv = setInterval(()=>{ if (pc.iceGatheringState==='complete'){clearInterval(iv); r();}}, 100);
+        });
+        await client.connectOffer(pc.localDescription.sdp, new CriteriaBuilder().withService('webrtc-demo').build());
+        log('Offer sent');
+      }
+
+      document.getElementById('btnConnect').onclick = connectServer;
+      document.getElementById('btnRegister').onclick = register;
+      document.getElementById('btnOffer').onclick = offer;
+    </script>
+  </body>
+  </html>

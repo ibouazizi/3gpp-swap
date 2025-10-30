@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+Dockerfile*
+.git
+.gitignore
+**/test
+swap-protocol/test
+swap-protocol/dev_integration.js
+examples
+.claude
+media
+

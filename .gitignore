@@ -1,0 +1,12 @@
+AGENTS.md
+CLAUDE.md
+backup
+.idea/
+.claude/
+**/__pycache__
+**/*.egg
+__pycache__/
+*.venv*/
+.ignore/
+*.egg-info
+!.vscode/
