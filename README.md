@@ -28,16 +28,62 @@ Quick Start
   - WS URL: `ws://localhost:8080/3gpp-swap/v1`
   - Health check: `http://localhost:8080/health`
 
+TLS/WSS locally (optional):
+
+```bash
+USE_TLS=true TLS_CERT_FILE=certs/cert.pem TLS_KEY_FILE=certs/key.pem PUBLIC_DOMAIN=your.domain.com npm start
+# WSS URL: wss://your.domain.com:8080/3gpp-swap/v1
+```
+
 Run With Docker
 ---------------
 
-- Build: `docker build -t swap-server .`
+- Build (plaintext): `docker build -t swap-server .`
 - Run (plaintext): `docker run -p 8080:8080 swap-server`
-- Run (secured relay):
-  - `docker run -p 8080:8080 -e SWAP_SECURITY_ENABLED=true -e SWAP_SHARED_SECRET=secret123 swap-server`
+- Build (TLS/WSS, certificates baked in):
+  - Put your certs under `./certs/` as `cert.pem` and `key.pem` (and optional `chain.pem`).
+  - Use BuildKit to include certs: `DOCKER_BUILDKIT=1 docker build -t swap-server-wss .`
+- Run (TLS/WSS):
+  - `docker run -p 8080:8080 -e USE_TLS=true -e PUBLIC_DOMAIN=your.domain.com swap-server-wss`
+  - Optional envs if using non-default paths: `TLS_CERT_FILE`, `TLS_KEY_FILE`, `TLS_CA_FILE`.
+  - Alternatively, mount certs at runtime:
+    - `docker run -p 8080:8080 -e USE_TLS=true -e PUBLIC_DOMAIN=your.domain.com -v $(pwd)/certs:/app/certs:ro swap-server`
+
+Docker Compose (one-command TLS)
+--------------------------------
+
+Use the provided `docker-compose.yml` for a quick TLS setup. Place your certs in `./certs/` and create a `.env` file to override variables (optional).
+
+Example `.env`:
+
+```
+USE_TLS=true
+PUBLIC_DOMAIN=your.domain.com
+PORT=8080
+SWAP_SECURITY_ENABLED=false
+SWAP_SHARED_SECRET=
+```
+
+Start the server:
+
+```bash
+docker compose up -d --build
+```
+
+The server logs will include a WSS endpoint like:
+
+```
+WebSocket endpoint: wss://your.domain.com:8080/3gpp-swap/v1
+Health check: https://your.domain.com:8080/health
+```
 
 Environment variables:
 - `PORT`: server port (default `8080`)
+- `USE_TLS`: `true|1` to enable HTTPS/WSS
+- `TLS_CERT_FILE`: path to TLS certificate (default `/app/certs/cert.pem`)
+- `TLS_KEY_FILE`: path to TLS private key (default `/app/certs/key.pem`)
+- `TLS_CA_FILE`: optional CA/chain file
+- `PUBLIC_DOMAIN`: used for logging the WSS endpoint (default `localhost`)
 - `SWAP_SECURITY_ENABLED`: `true|1` enables HMAC signing and optional AES-GCM encryption for hop‑by‑hop relay
 - `SWAP_SHARED_SECRET`: shared secret used by HMAC/AES-GCM when security is enabled
 
@@ -50,6 +96,35 @@ Protocol Highlights
 - Matching: server selects target by criteria (e.g., `{ type: 'service', value: 'video-call' }`)
 - SDP rules (v1): no trickle ICE; send offers/answers with all gathered candidates
 - Errors: RFC 7807 Problem Details
+
+Criteria Matching (AND)
+-----------------------
+
+Multiple criteria are combined using logical AND. A target endpoint matches only if it satisfies all provided `{ type, value }` pairs in the query.
+
+Example:
+
+```js
+// Registered endpoints
+// A: [{ type: 'service', value: 'video-call' }]
+// B: [
+//   { type: 'service', value: 'video-call' },
+//   { type: 'qos', value: 'high' },
+//   { type: 'region', value: 'eu-west' }
+// ]
+
+// Query: service=video-call AND qos=high AND region=eu-west
+import { CriteriaBuilder } from './swap-protocol/dist/browser/swap.esm.js';
+
+const criteria = new CriteriaBuilder()
+  .withService('video-call')
+  .withQos('high')
+  .with('region', 'eu-west')
+  .build();
+
+// Only endpoint B matches because it is a superset of all query criteria.
+// Endpoint A does not match (it lacks qos and region).
+```
 
 Security Model (Optional, Negotiated)
 -------------------------------------
@@ -136,6 +211,11 @@ Enable hop‑by‑hop security:
 ```bash
 SWAP_SECURITY_ENABLED=true SWAP_SHARED_SECRET=secret123 npm start
 ```
+
+Health Check Scheme
+-------------------
+
+When `USE_TLS=true`, the health check is served over HTTPS and the server logs will display `https://<PUBLIC_DOMAIN>:<PORT>/health`.
 
 WebRTC Example Using SWAP
 -------------------------

@@ -1,6 +1,8 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import express from 'express';
 import http from 'http';
+import https from 'https';
+import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 
 import {
@@ -16,7 +18,27 @@ import {
 } from './swap-protocol/src/index.js';
 
 const app = express();
-const server = http.createServer(app);
+
+// TLS configuration via environment variables
+// USE_TLS=true|1 to enable HTTPS (WSS)
+// TLS_CERT_FILE, TLS_KEY_FILE, TLS_CA_FILE optional
+const USE_TLS = process.env.USE_TLS === '1' || process.env.USE_TLS === 'true';
+let server;
+if (USE_TLS) {
+  const certPath = process.env.TLS_CERT_FILE || 'certs/cert.pem';
+  const keyPath = process.env.TLS_KEY_FILE || 'certs/key.pem';
+  const caPath = process.env.TLS_CA_FILE;
+  const tlsOptions = {
+    cert: fs.readFileSync(certPath),
+    key: fs.readFileSync(keyPath)
+  };
+  if (caPath && fs.existsSync(caPath)) {
+    tlsOptions.ca = fs.readFileSync(caPath);
+  }
+  server = https.createServer(tlsOptions, app);
+} else {
+  server = http.createServer(app);
+}
 
 // SWAP WebSocket server configuration
 const wss = new WebSocketServer({
@@ -391,7 +413,10 @@ app.get('/health', (req, res) => {
 // Start server
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`SWAP server listening on port ${PORT}`);
-  console.log(`WebSocket endpoint: ws://localhost:${PORT}/3gpp-swap/v1`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+  const scheme = USE_TLS ? 'wss' : 'ws';
+  const httpScheme = USE_TLS ? 'https' : 'http';
+  const host = process.env.PUBLIC_DOMAIN || 'localhost';
+  console.log(`SWAP server listening on port ${PORT} (${USE_TLS ? 'TLS' : 'plaintext'})`);
+  console.log(`WebSocket endpoint: ${scheme}://${host}:${PORT}/3gpp-swap/v1`);
+  console.log(`Health check: ${httpScheme}://${host}:${PORT}/health`);
 });

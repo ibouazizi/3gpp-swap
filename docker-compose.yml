@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  swap-server:
+    build: .
+    image: swap-server:latest
+    container_name: swap-server
+    environment:
+      # TLS / WSS
+      USE_TLS: ${USE_TLS:-true}
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-your.domain.com}
+      TLS_CERT_FILE: ${TLS_CERT_FILE:-/app/certs/cert.pem}
+      TLS_KEY_FILE: ${TLS_KEY_FILE:-/app/certs/key.pem}
+      TLS_CA_FILE: ${TLS_CA_FILE:-}
+      PORT: ${PORT:-8080}
+      # Optional hop-by-hop security
+      SWAP_SECURITY_ENABLED: ${SWAP_SECURITY_ENABLED:-false}
+      SWAP_SHARED_SECRET: ${SWAP_SHARED_SECRET:-}
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ./certs:/app/certs:ro
+    restart: unless-stopped
+
