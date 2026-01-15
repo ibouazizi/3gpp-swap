@@ -136,6 +136,57 @@ Security Model (Optional, Negotiated)
 - If server security is enabled and the recipient advertised capabilities, the server signs (and optionally encrypts) messages addressed to that recipient.
 - Clients enable security via configuration (see below). End‑to‑end client‑to‑client encryption is not implemented here (no key exchange); this focuses on hop‑by‑hop transport protection.
 
+Message-Level Security (TS 26.113 § 13.2.4.5)
+---------------------------------------------
+
+Messages are **not signed or encrypted by default**. Security is opt-in via `sign()` and `encrypt()` methods:
+
+| Mode | Methods | Security Envelope |
+|------|---------|-------------------|
+| Default | (none) | No `security` field - plaintext |
+| Sign only | `msg.sign({...})` | `enc: 'none', mac: 'HMAC-SHA256'` |
+| Encrypt only | `msg.encrypt({...})` | `enc: 'AES-GCM', mac: 'none'` |
+| Both | `msg.encrypt({...}); msg.sign({...})` | `enc: 'AES-GCM', mac: 'HMAC-SHA256'` |
+
+Example:
+
+```js
+import { ConnectMessage, SwapMessage } from './swap-protocol/src/index.js';
+
+// Create a message (default: no security)
+const msg = new ConnectMessage(offerSdp, criteria, { source_id: 'ep-xxx' });
+
+// Option 1: Sign only (integrity protection)
+await msg.sign({ sharedSecret: 'my-secret' });
+
+// Option 2: Encrypt only (confidentiality)
+await msg.encrypt({ sharedSecret: 'my-secret' });
+
+// Option 3: Encrypt then sign (recommended for full protection)
+await msg.encrypt({ sharedSecret: 'my-secret' });
+await msg.sign({ sharedSecret: 'my-secret' });
+
+// Serialize and send
+const json = msg.serialize();
+
+// Receiver: verify and decrypt
+const msgObj = JSON.parse(json);
+const isValid = await SwapMessage.verify(msgObj, { sharedSecret: 'my-secret' });
+const decrypted = await SwapMessage.decrypt(msgObj, { sharedSecret: 'my-secret' });
+```
+
+Pre-derived keys can also be used for better performance:
+
+```js
+import { KeyDerivation } from './swap-protocol/src/index.js';
+
+const hmacKey = await KeyDerivation.importHmacKey('my-secret');
+const aesKey = await KeyDerivation.deriveAesKey('my-secret', 'swap-v1:ep-xxx');
+
+await msg.sign({ hmacKey });
+await msg.encrypt({ aesKey });
+```
+
 Library Usage (Local Development)
 ---------------------------------
 
@@ -304,6 +355,12 @@ API Overview
 
 - `CriteriaBuilder()`
   - `.withService(name)`, `.withQos(level)`, `.withLocation(loc)`, `.withUser(user)`, `.withApp(app)`, `.with(type, value)`
+
+- `SwapMessage` (base class for all messages)
+  - `sign({ sharedSecret } | { hmacKey })` - Sign message with HMAC-SHA256 (optional)
+  - `encrypt({ sharedSecret, salt? } | { aesKey })` - Encrypt payload with AES-GCM (optional)
+  - `static verify(msgObj, options)` - Verify signature
+  - `static decrypt(msgObj, options)` - Decrypt payload
 
 - `SecurityManager`
   - Hop‑by‑hop HMAC (integrity) and AES‑GCM (encryption). The server protects responses and relayed messages when both sides support security and it is enabled on the server.
