@@ -5,9 +5,7 @@ import fs from 'fs';
 
 import { SwapServer } from './swap-protocol/src/index.node.js';
 
-function onKeydown() {
-  return new Promise((resolve) => {
-    const stdin = process.stdin;
+const app = express();
 
 // TLS configuration via environment variables
 // USE_TLS=true|1 to enable HTTPS (WSS)
@@ -53,7 +51,7 @@ app.get('/health', (req, res) => {
     registeredEndpoints: swapServer.registeredEndpoints.size,
     activeSessions: swapServer.activeSessions.size
   });
-}
+});
 
 // Start server
 async function start() {
