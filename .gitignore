@@ -1,5 +1,5 @@
-AGENTS.md
-CLAUDE.md
+*.md
+!README.md
 backup
 .idea/
 .claude/
@@ -10,4 +10,4 @@ __pycache__/
 .ignore/
 *.egg-info
 !.vscode/
-node_modules/
+**/node_modules
