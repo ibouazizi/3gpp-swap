@@ -23,6 +23,7 @@ test('RegisterMessage validates and serializes', () => {
   assert.equal(valid, true, JSON.stringify(errors));
   const json = reg.serialize();
   const parsed = JSON.parse(json);
+  console.log(parsed)
   assert.equal(parsed.version, 1);
   assert.equal(parsed.source_id, 'endpoint-123456');
 });

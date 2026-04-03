@@ -54,16 +54,24 @@ export class SwapServer extends EventEmitter {
 
   _onConnection(ws) {
     ws.on('message', async (data) => {
-      let message;
-      try { message = JSON.parse(data.toString()); } catch { return this._sendError(ws, 0, ErrorTypes.MESSAGE_MALFORMATTED, 'Invalid JSON'); }
-      // Try to unpack if security envelope present
-      if (message && message.security) {
-        try { message = await this.security.unpackIncoming(message); } catch (e) { return this._sendError(ws, message.message_id || 0, ErrorTypes.MESSAGE_MALFORMATTED, 'Security unpack failed'); }
+      let msg;
+      try { 
+        msg = JSON.parse(data.toString()); 
+      } catch { 
+        return this._sendError(ws, -1,  -1, ErrorTypes.MESSAGE_MALFORMATTED, 'Invalid JSON');
       }
-      const v = validateMessageShape(message);
-      if (!v.valid) return this._sendError(ws, message.message_id || 0, ErrorTypes.MESSAGE_MALFORMATTED, 'Message does not conform to schema');
-      this.endpoints.set(message.source_id, ws);
-      this._dispatch(ws, message);
+      // Try to unpack if security envelope present
+      if (msg && msg.security) {
+        try { 
+          msg = await this.security.unpackIncoming(msg); 
+        } catch (e) { 
+          return this._sendError(ws, msg.source_id, msg.message_id, ErrorTypes.MESSAGE_MALFORMATTED, 'Security unpack failed'); 
+        }
+      }
+      const v = validateMessageShape(msg);
+      if (!v.valid) return this._sendError(ws, msg.source_id, msg.message_id,  ErrorTypes.MESSAGE_MALFORMATTED, 'Message does not conform to schema');
+      this.endpoints.set(msg.source_id, ws);
+      this._dispatch(ws, msg);
     });
 
     ws.on('close', () => {
@@ -92,8 +100,8 @@ export class SwapServer extends EventEmitter {
     }
   }
 
-  async _ack(ws, msg, status = 200, reason = 'OK') {
-    const resp = new ResponseMessage(msg.message_id, status, reason, null, { source_id: this.serverSource });
+  async _ack(ws, msg) {
+    const resp = new ResponseMessage('ack', msg.source_id, msg.message_id, undefined, { source_id: this.serverSource });
     // Only secure if server enabled and sender advertised security support
     const caps = this.registeredEndpoints.get(msg.source_id)?.capabilities;
     const wantsSec = !!caps?.security?.integrity || !!caps?.security?.encryption;
@@ -102,6 +110,7 @@ export class SwapServer extends EventEmitter {
         const raw = JSON.parse(JSON.stringify(resp));
         const out = await this.security.prepareOutgoing(raw);
         ws.send(JSON.stringify(out));
+        console.log("sent ACK");
         return;
       } catch {}
     }
@@ -110,18 +119,18 @@ export class SwapServer extends EventEmitter {
 
   _onRegister(ws, message) {
     console.log('[server] register from', message.source_id);
-    this.registeredEndpoints.set(message.source_id, { ws, criteria: message.criteria, capabilities: message.capabilities || {} });
-    this.matching.register(message.source_id, message.criteria);
+    this.registeredEndpoints.set(message.source_id, { ws, criteria: message.matching_criteria, capabilities: message.capabilities || {} });
+    this.matching.register(message.source_id, message.matching_criteria);
     this._ack(ws, message);
   }
 
   async _onConnect(ws, message) {
     console.log('[server] connect from', message.source_id);
-    const matches = this.matching.findMatches(message.criteria).filter(id => id !== message.source_id);
-    if (!matches.length) return this._sendError(ws, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'No matching endpoint found');
+    const matches = this.matching.findMatches(message.matching_criteria).filter(id => id !== message.source_id);
+    if (!matches.length) return this._sendError(ws, message.source_id, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'No matching endpoint found');
     const selected = this.matching.selectEndpoint(matches);
     const targetSock = this.endpoints.get(selected);
-    if (!targetSock) return this._sendError(ws, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Selected endpoint unavailable');
+    if (!targetSock) return this._sendError(ws, message.source_id, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Selected endpoint unavailable');
     this.pendingConnections.set(message.source_id, { target: selected, offer: message.offer, messageId: message.message_id });
     await this._forwardTo(selected, message);
     this._ack(ws, message);
@@ -129,7 +138,7 @@ export class SwapServer extends EventEmitter {
 
   async _onAccept(ws, message) {
     const targetSock = this.endpoints.get(message.target);
-    if (!targetSock) return this._sendError(ws, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Target endpoint not found');
+    if (!targetSock) return this._sendError(ws, message.source_id, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Target endpoint not found');
     const sessionId = uuidv4();
     this.activeSessions.set(sessionId, { a: message.source_id, b: message.target, state: 'active' });
     await this._forwardTo(message.target, message);
@@ -139,14 +148,14 @@ export class SwapServer extends EventEmitter {
 
   async _onReject(ws, message) {
     const targetSock = this.endpoints.get(message.target);
-    if (!targetSock) return this._sendError(ws, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Target endpoint not found');
+    if (!targetSock) return this._sendError(ws, message.source_id, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Target endpoint not found');
     await this._forwardTo(message.target, message);
     this._ack(ws, message);
   }
 
   async _onUpdate(ws, message) {
     const targetSock = this.endpoints.get(message.target);
-    if (!targetSock) return this._sendError(ws, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Target endpoint not found');
+    if (!targetSock) return this._sendError(ws, message.source_id, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Target endpoint not found');
     await this._forwardTo(message.target, message);
     this._ack(ws, message);
   }
@@ -167,7 +176,7 @@ export class SwapServer extends EventEmitter {
 
   async _onApplication(ws, message) {
     const targetSock = this.endpoints.get(message.target);
-    if (!targetSock) return this._sendError(ws, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Target endpoint not found');
+    if (!targetSock) return this._sendError(ws, message.source_id, message.message_id, ErrorTypes.TARGET_UNKNOWN, 'Target endpoint not found');
     await this._forwardTo(message.target, message);
     this._ack(ws, message);
   }
@@ -188,11 +197,13 @@ export class SwapServer extends EventEmitter {
     endpoint.ws.send(JSON.stringify(out));
   }
 
-  _sendError(ws, responseTo, errorType, detail) {
+  _sendError(ws, source_id, message_id, errorType, detail) {
     let problem = ProblemDetails[errorType]?.() || { type: errorType, title: 'Bad Request', status: 400, detail };
     if (detail) problem.detail = detail;
-    const resp = new ResponseMessage(responseTo || 0, 400, 'Bad Request', problem, { source_id: this.serverSource });
-    ws.send(JSON.stringify(resp));
+    const resp = new ResponseMessage('error', source_id, message_id, detail, { source_id: this.serverSource });
+    ws.send(JSON.stringify(resp), {}, (args) => {
+      console.log("ws error sent ...")
+    });
   }
 
   _closeSessionsFor(source) {

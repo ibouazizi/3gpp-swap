@@ -25,10 +25,11 @@ const schemas = {
   [MessageTypes.REGISTER]: {
     type: 'object',
     required: ['version', 'source_id', 'message_id', 'message_type'],
-    additionalProperties: false,
+    additionalProperties: true,
     properties: {
       ...baseFields,
-      criteria: { type: 'array', items: criteriaItem },
+      // criteria: { type: 'array', items: criteriaItem },
+      matching_criteria: { type: 'array', items: criteriaItem },
       capabilities: {
         type: 'object',
         additionalProperties: true,
@@ -36,8 +37,8 @@ const schemas = {
           security: {
             type: 'object',
             properties: {
-              integrity: { type: 'boolean' },
-              encryption: { type: 'boolean' }
+              // encryption: { type: 'boolean' },
+              integrity: { type: 'boolean' }
             },
             additionalProperties: true
           }
@@ -46,8 +47,8 @@ const schemas = {
       security: { type: 'object', nullable: true }
     },
     anyOf: [
-      { required: ['criteria'] },
-      { required: ['security'] }
+      // { required: ['security'] },
+      { required: ['matching_criteria'] }
     ]
   },
   [MessageTypes.RESPONSE]: {
@@ -70,11 +71,11 @@ const schemas = {
     properties: {
       ...baseFields,
       offer: { type: 'string', minLength: 1 },
-      criteria: { type: 'array', items: criteriaItem },
+      matching_criteria: { type: 'array', items: criteriaItem },
       security: { type: 'object', nullable: true }
     },
     anyOf: [
-      { required: ['offer', 'criteria'] },
+      { required: ['offer', 'matching_criteria'] },
       { required: ['security'] }
     ]
   },

@@ -12,10 +12,13 @@ import { RejectMessage } from '../messages/RejectMessage.js';
 import { UpdateMessage } from '../messages/UpdateMessage.js';
 import { CloseMessage } from '../messages/CloseMessage.js';
 import { ApplicationMessage } from '../messages/ApplicationMessage.js';
+import { ResponseMessage } from '../messages/ResponseMessage.js';
+import { generateSourceId } from '../utils/IdGenerator.js';
 
 export class SwapClient extends Emitter {
   constructor(options = {}) {
     super();
+    this.source_id = options?.identity?.source_id || generateSourceId();
     this.options = options;
     this.transport = new WebSocketTransport(options);
     this.stateMachine = new StateMachine();
@@ -29,8 +32,7 @@ export class SwapClient extends Emitter {
   async connect() {
     await this.transport.connect();
     // Initialize crypto keys if needed; use a stable source_id if provided
-    const sid = this.options?.identity?.source_id || 'swap';
-    await this.security.init(sid).catch(() => {});
+    await this.security.init(this.source_id).catch(() => {});
   }
 
   async register(criteria) {
@@ -40,6 +42,7 @@ export class SwapClient extends Emitter {
       : {};
     const msg = new RegisterMessage(criteria, { ...this._init(), ...caps });
     const res = await this._sendAndWait(msg);
+    // FIXME: _sendAndWait doesn't return anything, below code is noop
     if (res?.status === 200) this.emit('registered', res);
     return res;
   }
@@ -140,11 +143,12 @@ export class SwapClient extends Emitter {
   }
 
   _init() {
-    return this.options.identity || {}; // allow caller to fix source_id if needed
+    // return this.options.identity || {}; // allow caller to fix source_id if needed
+    return { source_id: this.source_id }; 
   }
 
   async _sendAndWait(msg) {
-    const timeoutMs = this.options?.timeout?.response ?? 5000;
+    const timeoutMs = 5000; // this.options?.timeout?.response ?? 5000;
     const mid = msg.message_id;
     const raw = JSON.parse(msg.serialize());
     const payloadObj = await this.security.prepareOutgoing(raw).catch(() => raw);
@@ -159,11 +163,11 @@ export class SwapClient extends Emitter {
   }
 
   _handleResponse(msg) {
-    const entry = this.pending.get(msg.response_to);
+    const entry = this.pending.get(msg.request);
     if (!entry) return;
     clearTimeout(entry.timer);
-    this.pending.delete(msg.response_to);
-    if (msg.status && msg.status >= 200 && msg.status < 300) entry.resolve(msg);
-    else entry.reject(Object.assign(new Error('SWAP error'), { problem: msg.error, status: msg.status }));
+    this.pending.delete(msg.request);
+    if (msg.type == "ack") entry.resolve(msg);
+    else entry.reject(Object.assign(new Error('SWAP error'), { problem: msg.description, status: msg.description }));
   }
 }

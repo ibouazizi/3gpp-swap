@@ -5,7 +5,7 @@ export class ConnectMessage extends SwapMessage {
   constructor(offer, criteria = [], init = {}) {
     super(MessageTypes.CONNECT, init);
     this.offer = offer;
-    this.criteria = Array.isArray(criteria) ? criteria : [];
+    this.matching_criteria = Array.isArray(criteria) ? criteria : [];
   }
 }
 

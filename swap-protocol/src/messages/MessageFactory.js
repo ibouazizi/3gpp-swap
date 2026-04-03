@@ -17,11 +17,11 @@ export class MessageFactory {
     const common = { source_id: obj.source_id, message_id: obj.message_id };
     switch (obj.message_type) {
       case MessageTypes.REGISTER:
-        return new RegisterMessage(obj.criteria, common);
+        return new RegisterMessage(obj.matching_criteria, common);
       case MessageTypes.RESPONSE:
-        return new ResponseMessage(obj.response_to, obj.status, obj.reason, obj.error, common);
+        return new ResponseMessage(obj.type, obj.target, obj.request, obj.description, common);
       case MessageTypes.CONNECT:
-        return new ConnectMessage(obj.offer, obj.criteria, common);
+        return new ConnectMessage(obj.offer, obj.matching_criteria, common);
       case MessageTypes.ACCEPT:
         return new AcceptMessage(obj.target, obj.answer, common);
       case MessageTypes.REJECT:
