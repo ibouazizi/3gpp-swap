@@ -7,7 +7,7 @@ import { Encryption } from '../security/Encryption.js';
 export class SwapMessage {
   constructor(messageType, init = {}) {
     this.version = 1;
-    this.source_id = init.source_id || generateSourceId('ep'); // FIXME: generates random source id on new messages.
+    this.source_id = init.source_id || generateSourceId();
     if (!SwapMessage._counters[this.source_id]) {
       SwapMessage._counters[this.source_id] = { value: 0 };
     }

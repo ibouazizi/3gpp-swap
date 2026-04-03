@@ -24,7 +24,7 @@ export class SwapServer extends EventEmitter {
     this.registeredEndpoints = new Map(); // source_id -> { ws, criteria, capabilities }
     this.activeSessions = new Map(); // sessionId -> { a, b, state }
     this.pendingConnections = new Map(); // source_id -> { target, offer, messageId }
-    this.serverSource = generateSourceId('server');
+    this.serverSource = generateSourceId();
     this.matching = new MatchingEngine();
     this.security = new SecurityManager(options.security || { enabled: false });
   }

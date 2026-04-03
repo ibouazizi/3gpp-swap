@@ -34,14 +34,19 @@ export class WebSocketTransport extends Emitter {
       const ws = new WS(this.uri, this.protocol);
       this.ws = ws;
 
-      const onOpen = () => {
-        this.logger.info('Connected');
-        this.reconnect.reset();
-        try { this.queue.flush((m) => this._sendNow(m)); } catch (e) { /* ignore flush failures */ }
-        this.emit('open');
-        cleanup();
-        resolve();
-      };
+      // Use Node EventEmitter API (`on`) when available, otherwise fall back
+      // to the browser EventTarget API (`addEventListener`). Attaching both
+      // causes every event to fire twice on Node's `ws` which supports both.
+      const isNode = typeof ws.on === 'function';
+
+      const attach = isNode
+        ? (evt, fn) => ws.on(evt, fn)
+        : (evt, fn) => ws.addEventListener(evt, fn);
+
+      const detach = isNode
+        ? (evt, fn) => ws.off(evt, fn)
+        : (evt, fn) => ws.removeEventListener(evt, fn);
+
       const onError = (err) => {
         this.logger.error('WS error', err?.message || err);
         this.emit('error', err);
@@ -64,36 +69,32 @@ export class WebSocketTransport extends Emitter {
         }
       };
 
-      const cleanup = () => {
-        ws.removeEventListener?.('open', onOpen);
-        ws.removeEventListener?.('error', onError);
-        ws.removeEventListener?.('close', onClose);
-        ws.removeEventListener?.('message', onMessage);
-        // Node ws API
-        ws.off?.('open', onOpen);
-        ws.off?.('error', onError);
-        ws.off?.('close', onClose);
-        ws.off?.('message', onMessage);
-      };
+      const wrappedMessage = isNode
+        ? (data) => onMessage({ data })
+        : onMessage;
 
-      // Attach handlers for browser and node
-      ws.addEventListener?.('open', onOpen);
-      ws.addEventListener?.('error', onError);
-      ws.addEventListener?.('close', onClose);
-      ws.addEventListener?.('message', onMessage);
-      ws.on?.('open', onOpen);
-      ws.on?.('error', onError);
-      ws.on?.('close', onClose);
-      ws.on?.('message', (data) => onMessage({ data }));
+      // Persistent listeners — stay active for the lifetime of the connection
+      attach('error', onError);
+      attach('close', onClose);
+      attach('message', wrappedMessage);
 
-      // Fail connect if not open within timeout
+      // One-shot open handler — resolves the connect promise then removes itself
       const timeoutMs = this.options?.timeout?.connection ?? 10000;
       const t = setTimeout(() => {
         try { ws.close(); } catch {}
         reject(new Error('Connection timeout'));
       }, timeoutMs);
-      ws.once?.('open', () => clearTimeout(t));
-      ws.addEventListener?.('open', () => clearTimeout(t));
+
+      const onOpen = () => {
+        clearTimeout(t);
+        detach('open', onOpen);
+        this.logger.info('Connected');
+        this.reconnect.reset();
+        try { this.queue.flush((m) => this._sendNow(m)); } catch (e) { /* ignore flush failures */ }
+        this.emit('open');
+        resolve();
+      };
+      attach('open', onOpen);
     });
   }
 

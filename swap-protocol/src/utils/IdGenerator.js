@@ -1,9 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
-export function generateSourceId(prefix = 'src') {
-  // Ensure at least 10 UTF-8 characters
-  const id = `${prefix}-${uuidv4().replace(/-/g, '')}`;
-  return id.length >= 10 ? id : id.padEnd(10, '0');
+export function generateSourceId() {
+  return uuidv4();
 }
 
 export function nextMessageId(counterRef) {

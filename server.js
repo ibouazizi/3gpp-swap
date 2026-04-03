@@ -35,7 +35,7 @@ const PORT = process.env.PORT || 8080;
 const swapServer = new SwapServer({
   httpServer: server,
   port: PORT,
-  path: '/3gpp-swap/v1',
+  path: '/v1',
   security: {
     enabled: process.env.SWAP_SECURITY_ENABLED === '1' || process.env.SWAP_SECURITY_ENABLED === 'true',
     integrity: true,
