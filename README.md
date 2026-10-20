@@ -1,12 +1,9 @@
-3GPP SWAP (Simple WebRTC Application Protocol)
-==============================================
-
-See detailed setup and usage below.
-
-
-
 3GPP SWAP (Simple WebRTC Application Protocol) – Reference Server and JS Library
 ==============================================================================
+
+Author: Imed Bouazizi
+
+License: Apache License 2.0 (see [LICENSE](LICENSE))
 
 This repo contains a reference SWAP WebSocket server and a modular JavaScript library that implements the SWAP v1 protocol (as per 3GPP TS 26.113 v19.1.0).
 
@@ -408,3 +405,21 @@ Notes
 - This implementation focuses on SWAP v1 and a pragmatic, modular library with optional hop‑by‑hop security.
 - End‑to‑end media security should be handled by WebRTC itself (DTLS/SRTP). If you need end‑to‑end application message encryption, you can implement app‑level crypto on top.
 - For production use, consider persistence, authentication, rate limiting, and horizontal scaling (e.g., Redis for session coordination).
+
+Author
+------
+
+Imed Bouazizi
+
+License
+-------
+
+Copyright 2025-2026 Imed Bouazizi
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this project except in compliance with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+The full license text is in the [LICENSE](LICENSE) file.

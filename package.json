@@ -1,5 +1,12 @@
 {
   "name": "3gpp-swap",
+  "description": "3GPP SWAP (Simple WebRTC Application Protocol, TS 26.113) reference WebSocket signalling server and JavaScript library",
+  "author": "Imed Bouazizi <ibouazizi@gmail.com>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ibouazizi/3gpp-swap.git"
+  },
   "private": true,
   "type": "module",
   "scripts": {

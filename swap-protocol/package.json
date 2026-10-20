@@ -12,7 +12,7 @@
     "lint": "echo 'no linter configured'",
     "build:browser": "rollup -c"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
     "ajv": "^8.12.0",
     "sinon": "^21.0.1",
@@ -26,5 +26,11 @@
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-replace": "^5.0.7",
     "rollup": "^4.22.4"
+  },
+  "author": "Imed Bouazizi <ibouazizi@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ibouazizi/3gpp-swap.git",
+    "directory": "swap-protocol"
   }
 }
